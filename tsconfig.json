@@ -5,12 +5,13 @@
 	"module": "commonjs",                                /* Specify what module code is generated. */
 	"esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
 	"target": "ESNext",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-	"types": ["node", "ws"],                  /* Type declaration files to be included in compilation. */
+	"types": ["node"],                  /* Type declaration files to be included in compilation. */
 	"moduleResolution": "node",
 	"baseUrl": "./",                                     /* Base directory to resolve non-absolute module names. */
-	"outDir": "./dist",                                  /* Redirect output structure to the directory. */
+	// "outDir": "./dist",                                  /* Redirect output structure to the directory. */
     "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
 	"strict": true                                      /* Enable all strict type-checking options. */
-  }
+  },
+  "include": ["src/**/*.ts"]
   // "lib": ["es2015"]
 }
