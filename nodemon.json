@@ -2,5 +2,5 @@
 	"watch": ["src"],
 	"ext": "ts",
 	"ignore": ["src/public/script/*"],
-	"exec": "npm run build && node ./dist/server.js"
+	"exec": "npm run build:frontend && node ./dist/server.js"
 }
