@@ -2,14 +2,11 @@
 /*                                GLOBAL VARIABLES                            */
 /* ************************************************************************** */
 /*
- * Defnining canvas and context
- */
-const canvas = document.getElementById("pong_canvas") as HTMLCanvasElement | null;
-if (!canvas)
-	throw new Error("Canvas not found");
-const ctx = canvas.getContext("2d") as CanvasRenderingContext2D | null;
-if (!ctx)
-	throw new Error("Context not found");
+ * Defnining canvas and context */
+var canvas: HTMLCanvasElement;
+var ctx: CanvasRenderingContext2D;
+var	start_button: HTMLButtonElement;
+var	reset_button: HTMLButtonElement;
 
 /*
  * Define drawing var
@@ -23,10 +20,10 @@ const	PLAYER_COLOR: string = "#FFFFFF";
 
 /* Ball */
 const	BALL_COLOR: string = "#FFFFFF";
-var		BALL_RADIUS: number = 0.01 * Math.min(canvas.width, canvas.height);
+var		BALL_RADIUS: number;
 /* Terrain draw */
 const	TERRAIN_COLOR: string = "#FFFFFF";
-var		TERRAIN_LINE_FAT: number = 0.01 * Math.max(canvas.width, canvas.height);
+var		TERRAIN_LINE_FAT: number;
 
 /* Game status variable */
 var		intervalID: number;
@@ -141,22 +138,29 @@ function draw_ball(ball: Ball) {
  * @brief Draw the pong game frame
  */
 function draw() {
+	if (!canvas)
+		throw new Error("Canvas context not found");
 	if (!ctx)
 		throw new Error("Context not found");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	draw_player(game.player_1);
 	draw_player(game.player_2);
 	draw_ball(game.ball);
+	game.ball.pos = { x: game.ball.pos.x + game.ball.direction.x * game.ball.speed,
+						y: game.ball.pos.y + game.ball.direction.y * game.ball.speed };
 }
 
 /* ************************************************************************** */
 /*                                      GAME                                  */
 /* ************************************************************************** */
-function pong(p1_name: string, p2_name: string) {
+function start_game(p1_name: string, p2_name: string) {
 	if (!canvas)
 		throw new Error("Canvas not found");
 	if (!p1_name || !p2_name)
 		throw new Error("Invalid player name");
 	game = new Pong(p1_name, p2_name, { x: canvas.width / 2, y: canvas.height / 2 });
+	game.ball.direction = { x: 0.5, y: 0.5 };
+	game.ball.speed = 1;
 	let end_game = false;
 	function game_loop() {
 		if (game.player_1.score >= game.score_max || game.player_2.score >= game.score_max) {
@@ -172,6 +176,24 @@ function pong(p1_name: string, p2_name: string) {
 /* ************************************************************************** */
 /*                                    SPECIAL                                 */
 /* ************************************************************************** */
+/**
+ * @brief Show canvas when game start
+ */
+function show_canvas() {
+	if (!canvas)
+		throw new Error("Canvas not found.");
+	canvas.style.display = 'block';
+}
+
+/**
+ * @brief Hide canvas when game start
+ */
+function hide_canvas() {
+	if (!canvas)
+		throw new Error("Canvas not found.");
+	canvas.style.display = 'none';
+}
+
 /**
  * @brief REsize canvas for "Responsivness"
  */
@@ -202,12 +224,48 @@ function resizeCanvas() {
 	PLAYER_HEIGHT = PLAYER_WIDTH / PLAYER_WIDTH_HEIGHT_RATIO;
 	TERRAIN_LINE_FAT = 0.01 * Math.max(canvas.width, canvas.height);
 	BALL_RADIUS = 0.01 * Math.min(canvas.width, canvas.height);
-	// draw();
 }
 
-/*
- * Resize canva on window resize and window load
- */
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-pong("Jojo", "Lala");
+function load_script() {
+	try {
+		/* Set var */
+		start_button = document.getElementById("button_start_game") as HTMLButtonElement;
+		if (!start_button)
+			throw new Error("Start button not found.");
+		reset_button = document.getElementById("reset_button") as HTMLButtonElement;
+		if (!reset_button)
+			throw new Error("Reset button not found.");
+		canvas = document.getElementById("pong_canvas") as HTMLCanvasElement;
+		if (!canvas)
+			throw new Error("Canvas not found");
+		ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+		if (!ctx)
+			throw new Error("Context not found");
+
+		/* Set events listeners */
+		start_button.addEventListener("click", () => {
+			canvas.style.display = 'block';
+			start_button.style.display = 'none';
+			reset_button.style.display = 'block';
+			/* Start game */
+			resizeCanvas();
+			start_game("Jojo", "Lili");
+		});
+		reset_button.addEventListener("click", () => {
+			canvas.style.display = 'none';
+			start_button.style.display = 'block';
+			reset_button.style.display = 'none';
+
+		});
+		window.addEventListener("resize", resizeCanvas);
+
+	}
+	catch(err: any) {
+		console.log(err);
+	}
+}
+
+// window.addEventListener("resize", resizeCanvas);
+// resizeCanvas();
+// start_game("Jojo", "Lala");
+load_script();
