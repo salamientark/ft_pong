@@ -23,7 +23,7 @@ frontend.get('/', (request, reply) => {
 	return reply.sendFile("index.html");
 });
 
-frontend.listen({ port: 3000 }, (err, address) => {
+frontend.listen({ port: 3000, host: '0.0.0.0' }, (err, address) => {
 	if (err) {
 		frontend.log.error(err);
 		process.exit(1);
