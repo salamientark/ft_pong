@@ -19,7 +19,13 @@ var		PLAYER_WIDTH: number;
 const	PLAYER_COLOR: string = "#FFFFFF";
 const	PLAYER_SPEED: number = 7;
 
+/* Score + Text */
+const	FONT_NAME: string = "sans-serif";
+var		FONT_SIZE: number;
+const	SCORE_POS_RATIO: number = 0.9;
+
 /* Ball */
+const	BALL_INIT_SPEED: number = 4;
 const	BALL_COLOR: string = "#FFFFFF";
 const	BALL_MAX_SPEED: number = 50;
 var		BALL_RADIUS: number;
@@ -28,7 +34,12 @@ const	TERRAIN_COLOR: string = "#FFFFFF";
 var		TERRAIN_LINE_FAT: number;
 
 /* Game status variable */
+const	PLAYER_ONE: number = 1;
+const	PLAYER_TWO: number = 2;
 var		game: Pong;
+var		end_game: boolean;
+var		game_interval: NodeJS.Timeout | number;
+var		round_winner: number;
 var		p1_upPressed: boolean = false;
 var		p1_downPressed: boolean = false;
 var		p2_upPressed: boolean = false;
@@ -62,7 +73,7 @@ class Ball {
 	constructor(pos: Vec2) {
 		this.pos = pos;
 		this.direction = { x: 0, y: 0 };
-		this.speed = 4;
+		this.speed = BALL_INIT_SPEED;
 	}
 }
 
@@ -71,6 +82,7 @@ class Pong {
 	player_2: Player;
 	ball: Ball;
 	score_max: number;
+	new_round: boolean;
 
 	constructor(player_1_name: string, player_2_name: string, center: Vec2) {
 		if (!canvas)
@@ -82,12 +94,28 @@ class Pong {
 						 { x: canvas.width - player_offset - PLAYER_HEIGHT, y: (canvas.height - PLAYER_WIDTH) / 2 });
 		this.ball = new Ball(center);
 		this.score_max = 5;
+		this.new_round = true;
 	}
 }
 
 /* ************************************************************************** */
 /*                                       DRAW                                 */
 /* ************************************************************************** */
+function draw_score() {
+	if (!ctx)
+		throw new Error("Context not found");
+	let score_pos: Vec2 = { x: SCORE_POS_RATIO * canvas.width / 2,
+		y: (1 - SCORE_POS_RATIO) * canvas.height };
+	/* Calculate score width */
+    const player1ScoreWidth = ctx.measureText(`${game.player_1.score}`).width;
+    const player2ScoreWidth = ctx.measureText(`${game.player_2.score}`).width;
+
+	/* Draw score */
+	ctx.font = `${FONT_SIZE}px ${FONT_NAME}`;
+	ctx.fillText(`${game.player_1.score}`, score_pos.x - player1ScoreWidth / 2, score_pos.y);
+	ctx.fillText(`${game.player_2.score}`, canvas.width - score_pos.x - player2ScoreWidth / 2, score_pos.y);
+}
+
 /**
  * @brief Draw basic pong terrain
  */
@@ -96,18 +124,19 @@ function draw_terrain() {
 		throw new Error("Canvas not found");
 	if (!ctx)
 		throw new Error("Context not found");
-	if (window.innerWidth > window.innerHeight) {
-		ctx.rect(0, 0, canvas.width, TERRAIN_LINE_FAT); // Top line
-		ctx.rect(0, 0, TERRAIN_LINE_FAT, canvas.height); // Left line
-		ctx.rect(0, canvas.height - TERRAIN_LINE_FAT, canvas.width, TERRAIN_LINE_FAT); // Bottom line
-		ctx.rect(canvas.width - TERRAIN_LINE_FAT, 0, TERRAIN_LINE_FAT, canvas.height); // Right line
-	}
-	else {
-		ctx.rect(0, 0, canvas.height, TERRAIN_LINE_FAT); // Top line
-		ctx.rect(0, 0, TERRAIN_LINE_FAT, canvas.width); // Left line
-		ctx.rect(0, canvas.width - TERRAIN_LINE_FAT, canvas.height, TERRAIN_LINE_FAT); // Bottom line
-		ctx.rect(canvas.height - TERRAIN_LINE_FAT, 0, TERRAIN_LINE_FAT, canvas.width); // Right line
-	}
+	// if (window.innerWidth > window.innerHeight) {
+	// 	ctx.rect(0, 0, canvas.width, TERRAIN_LINE_FAT); // Top line
+	// 	ctx.rect(0, 0, TERRAIN_LINE_FAT, canvas.height); // Left line
+	// 	ctx.rect(0, canvas.height - TERRAIN_LINE_FAT, canvas.width, TERRAIN_LINE_FAT); // Bottom line
+	// 	ctx.rect(canvas.width - TERRAIN_LINE_FAT, 0, TERRAIN_LINE_FAT, canvas.height); // Right line
+	// }
+	// else {
+	// 	ctx.rect(0, 0, canvas.height, TERRAIN_LINE_FAT); // Top line
+	// 	ctx.rect(0, 0, TERRAIN_LINE_FAT, canvas.width); // Left line
+	// 	ctx.rect(0, canvas.width - TERRAIN_LINE_FAT, canvas.height, TERRAIN_LINE_FAT); // Bottom line
+	// 	ctx.rect(canvas.height - TERRAIN_LINE_FAT, 0, TERRAIN_LINE_FAT, canvas.width); // Right line
+	// }
+	ctx.rect((canvas.width - TERRAIN_LINE_FAT) / 2, 0, TERRAIN_LINE_FAT, canvas.height);
 	ctx.fillStyle = TERRAIN_COLOR;
 	ctx.fill();
 }
@@ -125,31 +154,32 @@ function update_ball_state() {
 	let	ball_next_pos = { x: ball.pos.x + ball.speed * dir.x, y: ball.pos.y + ball.speed * dir.y};
 
 	/* Check for wall collision */
-	if (ball_next_pos.x > canvas.width - BALL_RADIUS || ball_next_pos.x < BALL_RADIUS) {
-		dir.x = -dir.x;
-
-		/* Acceleration */
-		// game.ball.speed = Math.min(BALL_MAX_SPEED, speed + 1);
-	}
-	if (ball_next_pos.y > canvas.height - BALL_RADIUS || ball_next_pos.y < BALL_RADIUS) {
+	if (ball_next_pos.y > canvas.height - BALL_RADIUS || ball_next_pos.y < BALL_RADIUS)
 		dir.y = -dir.y;
-
-		/* Acceleration */
-		// game.ball.speed = Math.min(BALL_MAX_SPEED, speed + 1);
-	}
-	/* Check if player 1 touch the ball collision */
+	/* Check if player 1 touch the ball */
 	if ((ball.pos.x > p1.pos.x && ball.pos.x < p1.pos.x + PLAYER_HEIGHT)
 			&& (ball.pos.y > p1.pos.y && ball.pos.y < p1.pos.y + PLAYER_WIDTH)) {
 		dir.x = -dir.x;
 		game.ball.speed = Math.min(BALL_MAX_SPEED, ball.speed + 1);
 	}
+	/* Check if player 2 touch the ball */
 	if ((ball.pos.x > p2.pos.x && ball.pos.x < p2.pos.x + PLAYER_HEIGHT)
 			&& (ball.pos.y > p2.pos.y && ball.pos.y < p2.pos.y + PLAYER_WIDTH)) {
 		dir.x = -dir.x;
 		game.ball.speed = Math.min(BALL_MAX_SPEED, ball.speed + 1);
 	}
+	/* Check if player1 win a point */
+	if (ball_next_pos.x > canvas.width - BALL_RADIUS) {
+		game.player_1.score += 1;
+		game.new_round = true;
+	}
+	/* Check if player2 win a point */
+	if (ball_next_pos.x < BALL_RADIUS) {
+		game.player_2.score += 1;
+		game.new_round = true;
+	}
 
-
+	/* Update ball position */
 	game.ball.pos = { x: game.ball.pos.x + game.ball.direction.x * game.ball.speed,
 						y: game.ball.pos.y + game.ball.direction.y * game.ball.speed };
 }
@@ -222,9 +252,11 @@ function draw() {
 	if (!ctx)
 		throw new Error("Context not found");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	draw_terrain();
 	draw_player(game.player_1);
 	draw_player(game.player_2);
 	draw_ball(game.ball);
+	draw_score();
 	update_player_pos();
 	update_ball_state();
 }
@@ -267,26 +299,64 @@ function releasedKeyHandler(e: KeyboardEvent) {
 /* ************************************************************************** */
 /*                                      GAME                                  */
 /* ************************************************************************** */
-function start_game(p1_name: string, p2_name: string) {
+/**
+ * @brief Reset ball position
+ *
+ * On new game or new round
+ */
+function reset_ball() {
+	game.ball.pos = { x: canvas.width / 2, y: canvas.height / 2 };
+	game.ball.direction = { x: 0, y: 0 };
+	game.ball.speed = 0;
+}
+
+/**
+ * @brief start a new round
+ *
+ * Laucnh the ball
+ */
+function start_round() {
+	game.ball.speed = BALL_INIT_SPEED;
+	if (round_winner = PLAYER_ONE)
+		game.ball.direction = { x: 0.45, y: 0.55 };
+	else
+		game.ball.direction = { x: -0.45, y: 0.55 };
+}
+
+/**
+ * @brief Main game loop
+ */
+function game_loop() {
+	if (game.player_1.score >= game.score_max || game.player_2.score >= game.score_max) {
+		end_game = true;
+		clearInterval(game_interval);
+		return ;
+	}
+	if (game.new_round) {
+		reset_ball();
+		setTimeout(start_round, 1000);
+		game.new_round = false;
+	}
+	draw();
+}
+
+/**
+ * @brief Launch a new pong game
+ */
+function launch_game(p1_name: string, p2_name: string) {
 	if (!canvas)
 		throw new Error("Canvas not found");
 	if (!p1_name || !p2_name)
 		throw new Error("Invalid player name");
 	game = new Pong(p1_name, p2_name, { x: canvas.width / 2, y: canvas.height / 2 });
 	game.ball.direction = { x: 0.5, y: 0.5 };
-	let end_game = false;
-	function game_loop() {
-		if (game.player_1.score >= game.score_max || game.player_2.score >= game.score_max) {
-			end_game = true;
-			clearInterval(intervalID);
-			return ;
-		}
-		draw();
-	}
-	const intervalID = setInterval(game_loop, 10);
+	end_game = false;
+	game_interval = setInterval(game_loop, 10);
+	reset_ball();
+	draw();
 }
 
-/* ************************************************************************** */
+/* ************************************************************************* */
 /*                                    SPECIAL                                 */
 /* ************************************************************************** */
 /**
@@ -319,6 +389,7 @@ function resizeCanvas() {
 	PLAYER_HEIGHT = PLAYER_WIDTH / PLAYER_WIDTH_HEIGHT_RATIO;
 	TERRAIN_LINE_FAT = 0.01 * Math.max(canvas.width, canvas.height);
 	BALL_RADIUS = 0.01 * Math.min(canvas.width, canvas.height);
+	FONT_SIZE = 0.08 * Math.min(canvas.width, canvas.height);
 }
 
 /**
@@ -349,7 +420,7 @@ function load_script() {
 			reset_button.style.display = 'block';
 			/* Start game */
 			resizeCanvas();
-			start_game("Jojo", "Lili");
+			launch_game("Jojo", "Lili");
 		});
 		reset_button.addEventListener("click", () => {
 			canvas.style.display = 'none';
