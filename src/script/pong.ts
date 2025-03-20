@@ -17,18 +17,22 @@ const	PLAYER_WIDTH_HEIGHT_RATIO: number = 10;
 var		PLAYER_HEIGHT: number;
 var		PLAYER_WIDTH: number;
 const	PLAYER_COLOR: string = "#FFFFFF";
+const	PLAYER_SPEED: number = 7;
 
 /* Ball */
 const	BALL_COLOR: string = "#FFFFFF";
+const	BALL_MAX_SPEED: number = 50;
 var		BALL_RADIUS: number;
 /* Terrain draw */
 const	TERRAIN_COLOR: string = "#FFFFFF";
 var		TERRAIN_LINE_FAT: number;
 
 /* Game status variable */
-var		intervalID: number;
-var		endGame: boolean = false;
 var		game: Pong;
+var		p1_upPressed: boolean = false;
+var		p1_downPressed: boolean = false;
+var		p2_upPressed: boolean = false;
+var		p2_downPressed: boolean = false;
 
 /* ************************************************************************** */
 /*                              CLASSES && INTERFACES                         */
@@ -58,7 +62,7 @@ class Ball {
 	constructor(pos: Vec2) {
 		this.pos = pos;
 		this.direction = { x: 0, y: 0 };
-		this.speed = 0;
+		this.speed = 4;
 	}
 }
 
@@ -109,6 +113,78 @@ function draw_terrain() {
 }
 
 /**
+ * @brief Update ball direction and speed on collision
+ */
+function update_ball_state() {
+	let	p1 = game.player_1;
+	let	p2 = game.player_2;
+	let	ball = game.ball;
+	let	dir = game.ball.direction;
+	// let	pos = game.ball.pos;
+	// let	speed = game.ball.speed;
+	let	ball_next_pos = { x: ball.pos.x + ball.speed * dir.x, y: ball.pos.y + ball.speed * dir.y};
+
+	/* Check for wall collision */
+	if (ball_next_pos.x > canvas.width - BALL_RADIUS || ball_next_pos.x < BALL_RADIUS) {
+		dir.x = -dir.x;
+
+		/* Acceleration */
+		// game.ball.speed = Math.min(BALL_MAX_SPEED, speed + 1);
+	}
+	if (ball_next_pos.y > canvas.height - BALL_RADIUS || ball_next_pos.y < BALL_RADIUS) {
+		dir.y = -dir.y;
+
+		/* Acceleration */
+		// game.ball.speed = Math.min(BALL_MAX_SPEED, speed + 1);
+	}
+	/* Check if player 1 touch the ball collision */
+	if ((ball.pos.x > p1.pos.x && ball.pos.x < p1.pos.x + PLAYER_HEIGHT)
+			&& (ball.pos.y > p1.pos.y && ball.pos.y < p1.pos.y + PLAYER_WIDTH)) {
+		dir.x = -dir.x;
+		game.ball.speed = Math.min(BALL_MAX_SPEED, ball.speed + 1);
+	}
+	if ((ball.pos.x > p2.pos.x && ball.pos.x < p2.pos.x + PLAYER_HEIGHT)
+			&& (ball.pos.y > p2.pos.y && ball.pos.y < p2.pos.y + PLAYER_WIDTH)) {
+		dir.x = -dir.x;
+		game.ball.speed = Math.min(BALL_MAX_SPEED, ball.speed + 1);
+	}
+
+
+	game.ball.pos = { x: game.ball.pos.x + game.ball.direction.x * game.ball.speed,
+						y: game.ball.pos.y + game.ball.direction.y * game.ball.speed };
+}
+
+/**
+ * @brief Move player
+ */
+function update_player_pos() {
+	let	p1 = game.player_1;
+	let	p2 = game.player_2;
+
+	if (!canvas)
+		throw new Error("Canvas not found");
+	/* Update position */
+	if (p1_upPressed && !p1_downPressed)
+		p1.pos.y -= PLAYER_SPEED;
+	if (!p1_upPressed && p1_downPressed)
+		p1.pos.y += PLAYER_SPEED;
+	if (p2_upPressed && !p2_downPressed)
+		p2.pos.y -= PLAYER_SPEED;
+	if (!p2_upPressed && p2_downPressed)
+		p2.pos.y += PLAYER_SPEED;
+
+	/* Check for out of bound */
+	if (p1.pos.y > canvas.height - PLAYER_WIDTH)
+		p1.pos.y = canvas.height - PLAYER_WIDTH;
+	if (p1.pos.y < 0)
+		p1.pos.y = 0;
+	if (p2.pos.y > canvas.height - PLAYER_WIDTH)
+		p2.pos.y = canvas.height - PLAYER_WIDTH;
+	if (p2.pos.y < 0)
+		p2.pos.y = 0;
+}
+
+/**
  * @brief Draw the two players
  */
 function draw_player(player: Player) {
@@ -124,6 +200,9 @@ function draw_player(player: Player) {
 	ctx.closePath();
 }
 
+/**
+ * @brief Draw ball  on screen
+ */
 function draw_ball(ball: Ball) {
 	if (!ctx)
 		throw new Error("Context not found.");
@@ -146,8 +225,43 @@ function draw() {
 	draw_player(game.player_1);
 	draw_player(game.player_2);
 	draw_ball(game.ball);
-	game.ball.pos = { x: game.ball.pos.x + game.ball.direction.x * game.ball.speed,
-						y: game.ball.pos.y + game.ball.direction.y * game.ball.speed };
+	update_player_pos();
+	update_ball_state();
+}
+
+/* ************************************************************************** */
+/*                                  KEY HANDLER                               */
+/* ************************************************************************** */
+/**
+ * @brief Pressed key handler
+ *
+ * Check if one player want to move
+ */
+function pressedKeyHandler(e: KeyboardEvent) {
+	if (e.key === "Up" || e.key === "ArrowUp")
+		p2_upPressed = true;
+	if (e.key === "Down" || e.key === "ArrowDown")
+		p2_downPressed = true;
+	if (e.key === "w" || e.key === "W") // || e.key === "z" || e.key === "Z") // AZERTY keyboard
+		p1_upPressed = true;
+	if (e.key === "s" || e.key === "S")
+		p1_downPressed = true;
+}
+
+/**
+ * @brief Released key handler
+ *
+ * Check if one player want to stop move
+ */
+function releasedKeyHandler(e: KeyboardEvent) {
+	if (e.key === "Up" || e.key === "ArrowUp")
+		p2_upPressed = false;
+	if (e.key === "Down" || e.key === "ArrowDown")
+		p2_downPressed = false;
+	if (e.key === "w" || e.key === "W") // || e.key === "z" || e.key === "Z") // AZERTY keyboard
+		p1_upPressed = false;
+	if (e.key === "s" || e.key === "S")
+		p1_downPressed = false;
 }
 
 /* ************************************************************************** */
@@ -160,7 +274,6 @@ function start_game(p1_name: string, p2_name: string) {
 		throw new Error("Invalid player name");
 	game = new Pong(p1_name, p2_name, { x: canvas.width / 2, y: canvas.height / 2 });
 	game.ball.direction = { x: 0.5, y: 0.5 };
-	game.ball.speed = 1;
 	let end_game = false;
 	function game_loop() {
 		if (game.player_1.score >= game.score_max || game.player_2.score >= game.score_max) {
@@ -176,24 +289,6 @@ function start_game(p1_name: string, p2_name: string) {
 /* ************************************************************************** */
 /*                                    SPECIAL                                 */
 /* ************************************************************************** */
-/**
- * @brief Show canvas when game start
- */
-function show_canvas() {
-	if (!canvas)
-		throw new Error("Canvas not found.");
-	canvas.style.display = 'block';
-}
-
-/**
- * @brief Hide canvas when game start
- */
-function hide_canvas() {
-	if (!canvas)
-		throw new Error("Canvas not found.");
-	canvas.style.display = 'none';
-}
-
 /**
  * @brief REsize canvas for "Responsivness"
  */
@@ -226,6 +321,11 @@ function resizeCanvas() {
 	BALL_RADIUS = 0.01 * Math.min(canvas.width, canvas.height);
 }
 
+/**
+ * @brief Load the different event for the pong game
+ *
+ * This function should be called when the rigth html page is loaded
+ */
 function load_script() {
 	try {
 		/* Set var */
@@ -257,7 +357,11 @@ function load_script() {
 			reset_button.style.display = 'none';
 
 		});
-		window.addEventListener("resize", resizeCanvas);
+		document.addEventListener("keydown", pressedKeyHandler, false);
+		document.addEventListener("keyup", releasedKeyHandler, false);
+		window.addEventListener("resize", resizeCanvas); /* Resize
+														  * "Responsivness" attempt
+														  */
 
 	}
 	catch(err: any) {
@@ -265,7 +369,4 @@ function load_script() {
 	}
 }
 
-// window.addEventListener("resize", resizeCanvas);
-// resizeCanvas();
-// start_game("Jojo", "Lala");
 load_script();
