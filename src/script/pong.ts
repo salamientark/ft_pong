@@ -23,9 +23,10 @@ const	PLAYER_SPEED: number = 7;
 const	FONT_NAME: string = "sans-serif";
 var		FONT_SIZE: number;
 const	SCORE_POS_RATIO: number = 0.9;
+const	MSG_POS_RATIO: number = 0.7;
 
 /* Ball */
-const	BALL_INIT_SPEED: number = 4;
+const	BALL_INIT_SPEED: number = 8;
 const	BALL_COLOR: string = "#FFFFFF";
 const	BALL_MAX_SPEED: number = 50;
 var		BALL_RADIUS: number;
@@ -101,6 +102,9 @@ class Pong {
 /* ************************************************************************** */
 /*                                       DRAW                                 */
 /* ************************************************************************** */
+/**
+ * @brief Draw player score
+ */
 function draw_score() {
 	if (!ctx)
 		throw new Error("Context not found");
@@ -223,11 +227,11 @@ function draw_player(player: Player) {
 	if (!ctx)
 		throw new Error("Context not found");
 
-	ctx.beginPath();
+	// ctx.beginPath();
 	ctx.rect(player.pos.x, player.pos.y, PLAYER_HEIGHT, PLAYER_WIDTH);
 	ctx.fillStyle = PLAYER_COLOR;
 	ctx.fill();
-	ctx.closePath();
+	// ctx.closePath();
 }
 
 /**
@@ -240,7 +244,7 @@ function draw_ball(ball: Ball) {
 	ctx.arc(ball.pos.x, ball.pos.y, BALL_RADIUS, 0, 2 * Math.PI);
 	ctx.fillStyle = BALL_COLOR;
 	ctx.fill();
-	ctx.closePath();
+	// ctx.closePath();
 }
 
 /**
@@ -251,14 +255,45 @@ function draw() {
 		throw new Error("Canvas context not found");
 	if (!ctx)
 		throw new Error("Context not found");
+	ctx.beginPath();
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	draw_terrain();
 	draw_player(game.player_1);
 	draw_player(game.player_2);
 	draw_ball(game.ball);
 	draw_score();
+	ctx.closePath();
 	update_player_pos();
 	update_ball_state();
+}
+
+/**
+ * @brief Draw fianal state, when player win
+ */
+function draw_finish() {
+	if (!canvas)
+		throw new Error("Canvas context not found");
+	if (!ctx)
+		throw new Error("Context not found");
+	let msg_pos: Vec2 = { x: MSG_POS_RATIO * canvas.width / 2,
+		y: (1 - MSG_POS_RATIO) * canvas.height };
+    const msg_len: number = ctx.measureText("YOU WIN").width;
+	ctx.beginPath();
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	reset_ball();
+	reset_player_pos();
+	draw_terrain();
+	draw_player(game.player_1);
+	draw_player(game.player_2);
+	draw_ball(game.ball);
+	draw_score();
+
+	ctx.font = `${FONT_SIZE}px ${FONT_NAME}`;
+	if (game.player_1.score >= game.score_max)
+		ctx.fillText("YOU WIN", msg_pos.x - msg_len, msg_pos.y);
+	else
+		ctx.fillText("YOU WIN", canvas.width - msg_pos.x, msg_pos.y);
+	ctx.closePath();
 }
 
 /* ************************************************************************** */
@@ -311,6 +346,15 @@ function reset_ball() {
 }
 
 /**
+ * @brief Set player position to the middle
+ */
+function reset_player_pos() {
+	const player_offset = 0.05 * canvas.width;
+	game.player_1.pos = { x: player_offset, y: (canvas.height - PLAYER_WIDTH) / 2};
+	game.player_2.pos = { x: canvas.width - player_offset - PLAYER_HEIGHT, y: (canvas.height - PLAYER_WIDTH) / 2 };
+}
+
+/**
  * @brief start a new round
  *
  * Laucnh the ball
@@ -324,12 +368,20 @@ function start_round() {
 }
 
 /**
+ * @brief Handler on game finish
+ */
+function finish_game() {
+	draw_finish();
+}
+
+/**
  * @brief Main game loop
  */
 function game_loop() {
 	if (game.player_1.score >= game.score_max || game.player_2.score >= game.score_max) {
 		end_game = true;
 		clearInterval(game_interval);
+		finish_game();
 		return ;
 	}
 	if (game.new_round) {
@@ -352,8 +404,6 @@ function launch_game(p1_name: string, p2_name: string) {
 	game.ball.direction = { x: 0.5, y: 0.5 };
 	end_game = false;
 	game_interval = setInterval(game_loop, 10);
-	reset_ball();
-	draw();
 }
 
 /* ************************************************************************* */
@@ -440,4 +490,4 @@ function load_script() {
 	}
 }
 
-load_script();
+load_script(); /* Should be called when the right html is loaded */
